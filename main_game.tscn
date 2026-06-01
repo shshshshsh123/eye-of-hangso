@@ -1,0 +1,318 @@
+[gd_scene format=3 uid="uid://tpq72wain0fk"]
+
+[ext_resource type="Texture2D" uid="uid://b238gc6ax10g3" path="res://icon.svg" id="1_1oj5k"]
+[ext_resource type="Script" uid="uid://c51bpo46j38r3" path="res://Scripts/MainGame.gd" id="1_yx7mw"]
+[ext_resource type="Texture2D" uid="uid://dy3s08rggslxg" path="res://Resource/background.png" id="2_dugkq"]
+[ext_resource type="Texture2D" uid="uid://d8bqrc6ba5ok" path="res://Resource/ButtonImage.png" id="4_6bm6p"]
+[ext_resource type="Texture2D" uid="uid://cl4jt6m2tf31j" path="res://Resource/book_opened.png" id="5_dugkq"]
+[ext_resource type="Texture2D" uid="uid://c01k44v72clo" path="res://Resource/ArrowImage.png" id="6_2pltu"]
+[ext_resource type="Texture2D" uid="uid://1gg5l23qy1bv" path="res://Resource/CommissionButton.png" id="6_4srsv"]
+[ext_resource type="Texture2D" uid="uid://woegeioo14ch" path="res://Resource/XImage.png" id="7_f52ns"]
+[ext_resource type="FontFile" uid="uid://caoi7rb3mk2yg" path="res://Font/BMJUA_ttf.ttf" id="8_bmjua"]
+[ext_resource type="Texture2D" uid="uid://d2511qr5awvfu" path="res://Resource/CommissionPanel.png" id="10_mf81u"]
+
+[node name="MainGame" type="Control" unique_id=201009128]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_yx7mw")
+
+[node name="BackGround" type="TextureRect" parent="." unique_id=1985809228]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_dugkq")
+stretch_mode = 2
+
+[node name="InspectPopup" type="Panel" parent="." unique_id=210000021]
+visible = false
+layout_mode = 0
+offset_left = 710.0
+offset_top = 265.0
+offset_right = 1210.0
+offset_bottom = 815.0
+
+[node name="InspectTitle" type="Label" parent="InspectPopup" unique_id=210000022]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 12.0
+offset_right = 370.0
+offset_bottom = 58.0
+theme_override_fonts/font = ExtResource("8_bmjua")
+theme_override_font_sizes/font_size = 26
+text = "[ 실물 검사 ]"
+horizontal_alignment = 1
+
+[node name="InspectImage" type="TextureRect" parent="InspectPopup" unique_id=210000023]
+layout_mode = 0
+offset_left = 30.0
+offset_top = 68.0
+offset_right = 470.0
+offset_bottom = 478.0
+texture = ExtResource("1_1oj5k")
+expand_mode = 1
+
+[node name="InspectCloseBtn" type="Button" parent="InspectPopup" unique_id=210000024]
+layout_mode = 0
+offset_left = 380.0
+offset_top = 12.0
+offset_right = 490.0
+offset_bottom = 58.0
+theme_override_fonts/font = ExtResource("8_bmjua")
+theme_override_font_sizes/font_size = 22
+text = "닫기"
+
+[node name="ApproveImg" type="TextureRect" parent="." unique_id=1388928985]
+self_modulate = Color(0.28303906, 0.7155228, 0.19711514, 1)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -186.0
+offset_top = 326.0
+offset_right = -26.0
+offset_bottom = 486.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("4_6bm6p")
+
+[node name="ApproveBtn" type="Button" parent="ApproveImg" unique_id=1250747718]
+layout_mode = 0
+offset_right = 155.0
+offset_bottom = 160.0
+size_flags_horizontal = 3
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 15
+theme_override_font_sizes/font_size = 35
+text = "진품 승인"
+
+[node name="RejectImg" type="TextureRect" parent="." unique_id=1491354666]
+self_modulate = Color(1, 0.34901962, 0.39607844, 1)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 30.52002
+offset_top = 326.0
+offset_right = 190.52002
+offset_bottom = 486.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("4_6bm6p")
+
+[node name="RejectBtn" type="Button" parent="RejectImg" unique_id=1004452465]
+layout_mode = 0
+offset_right = 155.0
+offset_bottom = 160.0
+size_flags_horizontal = 3
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 15
+theme_override_font_sizes/font_size = 35
+text = "가품 반려"
+
+[node name="RuleBookButton" type="Button" parent="." unique_id=471896152]
+layout_mode = 0
+offset_left = 1234.0
+offset_top = 347.0
+offset_right = 1511.0
+offset_bottom = 723.0
+flat = true
+
+[node name="CommissionButton" type="Button" parent="." unique_id=197269491]
+layout_mode = 0
+offset_left = 430.99997
+offset_top = 323.99997
+offset_right = 1815.0
+offset_bottom = 2304.0
+scale = Vector2(0.2, 0.2)
+icon = ExtResource("6_4srsv")
+flat = true
+
+[node name="RuleBookUI" type="Control" parent="." unique_id=1455062244]
+visible = false
+anchors_preset = 0
+offset_left = 313.0
+offset_top = 139.0
+offset_right = 1634.0
+offset_bottom = 963.0
+
+[node name="BookBackground" type="TextureRect" parent="RuleBookUI" unique_id=322481968]
+layout_mode = 0
+offset_left = -134.0
+offset_top = -73.0
+offset_right = 1413.0
+offset_bottom = 837.0
+mouse_filter = 0
+texture = ExtResource("5_dugkq")
+
+[node name="ContentLabel1" type="RichTextLabel" parent="RuleBookUI" unique_id=173772342]
+layout_mode = 0
+offset_left = 160.0
+offset_top = 60.0
+offset_right = 560.00024
+offset_bottom = 610.0
+bbcode_enabled = true
+
+[node name="ContentLabel2" type="RichTextLabel" parent="RuleBookUI" unique_id=1306787220]
+layout_mode = 0
+offset_left = 762.0
+offset_top = 68.0
+offset_right = 1162.0002
+offset_bottom = 618.0
+bbcode_enabled = true
+
+[node name="PrevButton" type="TextureButton" parent="RuleBookUI" unique_id=88166609]
+layout_mode = 0
+offset_left = 44.0
+offset_top = 607.0
+offset_right = 172.0
+offset_bottom = 735.0
+texture_normal = ExtResource("6_2pltu")
+
+[node name="NextButton" type="TextureButton" parent="RuleBookUI" unique_id=1308532237]
+layout_mode = 0
+offset_left = 1231.0
+offset_top = 603.0
+offset_right = 1359.0
+offset_bottom = 731.0
+scale = Vector2(-1, 1)
+texture_normal = ExtResource("6_2pltu")
+
+[node name="CloseButton" type="Button" parent="RuleBookUI" unique_id=501905254]
+layout_mode = 0
+offset_left = 1141.0
+offset_top = 38.0
+offset_right = 2173.0
+offset_bottom = 1070.0
+scale = Vector2(0.08, 0.08)
+icon = ExtResource("7_f52ns")
+flat = true
+
+[node name="CommissionPanel" type="Panel" parent="." unique_id=210000001]
+visible = false
+layout_mode = 0
+offset_left = 190.0
+offset_top = 65.0
+offset_right = 868.0
+offset_bottom = 955.0
+
+[node name="TextureRect" type="TextureRect" parent="CommissionPanel" unique_id=1853991770]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("10_mf81u")
+
+[node name="CommissionContent" type="RichTextLabel" parent="CommissionPanel" unique_id=210000002]
+layout_mode = 0
+offset_left = 86.0
+offset_top = 33.0
+offset_right = 577.0
+offset_bottom = 689.0
+mouse_filter = 2
+theme_override_fonts/normal_font = ExtResource("8_bmjua")
+theme_override_font_sizes/normal_font_size = 20
+bbcode_enabled = true
+
+[node name="CloseButton" type="Button" parent="CommissionPanel" unique_id=1278780790]
+layout_mode = 0
+offset_left = 488.0
+offset_top = 41.0
+offset_right = 1520.0
+offset_bottom = 1073.0
+scale = Vector2(0.08, 0.08)
+icon = ExtResource("7_f52ns")
+flat = true
+
+[node name="InspectButton" type="Button" parent="CommissionPanel" unique_id=210000020]
+layout_mode = 0
+offset_left = 109.0
+offset_top = 713.0
+offset_right = 549.0
+offset_bottom = 780.0
+theme_override_fonts/font = ExtResource("8_bmjua")
+theme_override_font_sizes/font_size = 26
+text = "🔍  실물 검사"
+
+[node name="ScoreBar" type="Panel" parent="." unique_id=210000003]
+layout_mode = 0
+offset_left = 767.0
+offset_top = 9.0
+offset_right = 1157.0
+offset_bottom = 89.0
+
+[node name="DayLabel" type="Label" parent="ScoreBar" unique_id=210000004]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 8.0
+offset_right = 190.0
+offset_bottom = 72.0
+theme_override_fonts/font = ExtResource("8_bmjua")
+theme_override_font_sizes/font_size = 26
+text = "1일차"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ScoreLabel" type="Label" parent="ScoreBar" unique_id=210000005]
+layout_mode = 0
+offset_left = 198.0
+offset_top = 8.0
+offset_right = 385.0
+offset_bottom = 72.0
+theme_override_fonts/font = ExtResource("8_bmjua")
+theme_override_font_sizes/font_size = 26
+text = "점수: 0"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ResultPopup" type="Panel" parent="." unique_id=210000006]
+visible = false
+layout_mode = 0
+offset_left = 460.0
+offset_top = 150.0
+offset_right = 1460.0
+offset_bottom = 930.0
+
+[node name="ResultContent" type="RichTextLabel" parent="ResultPopup" unique_id=210000007]
+layout_mode = 0
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 970.0
+offset_bottom = 630.0
+theme_override_fonts/normal_font = ExtResource("8_bmjua")
+theme_override_font_sizes/normal_font_size = 24
+bbcode_enabled = true
+
+[node name="NextArtifactBtn" type="Button" parent="ResultPopup" unique_id=210000008]
+layout_mode = 0
+offset_left = 300.0
+offset_top = 648.0
+offset_right = 700.0
+offset_bottom = 718.0
+theme_override_fonts/font = ExtResource("8_bmjua")
+theme_override_font_sizes/font_size = 28
+text = "다음 의뢰 ▶"
+
+[connection signal="pressed" from="InspectPopup/InspectCloseBtn" to="." method="_on_inspect_close_btn_pressed"]
+[connection signal="pressed" from="ApproveImg/ApproveBtn" to="." method="_on_approve_btn_pressed"]
+[connection signal="pressed" from="RejectImg/RejectBtn" to="." method="_on_reject_btn_pressed"]
+[connection signal="pressed" from="RuleBookButton" to="." method="_on_rule_book_button_pressed"]
+[connection signal="pressed" from="CommissionButton" to="." method="_on_commission_button_pressed"]
+[connection signal="gui_input" from="RuleBookUI/BookBackground" to="." method="_on_rulebook_bg_gui_input"]
+[connection signal="pressed" from="RuleBookUI/PrevButton" to="." method="_on_prev_page_button_pressed"]
+[connection signal="pressed" from="RuleBookUI/NextButton" to="." method="_on_next_page_button_pressed"]
+[connection signal="pressed" from="RuleBookUI/CloseButton" to="." method="_on_close_button_pressed"]
+[connection signal="gui_input" from="CommissionPanel" to="." method="_on_commission_panel_gui_input"]
+[connection signal="pressed" from="CommissionPanel/CloseButton" to="." method="_on_commission_panel_close_pressed"]
+[connection signal="pressed" from="CommissionPanel/InspectButton" to="." method="_on_inspect_btn_pressed"]
+[connection signal="pressed" from="ResultPopup/NextArtifactBtn" to="." method="_on_next_artifact_btn_pressed"]

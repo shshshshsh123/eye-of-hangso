@@ -1,0 +1,228 @@
+[gd_scene format=3 uid="uid://ch8a0qhomwhqj"]
+
+[ext_resource type="Script" uid="uid://dsd58o75lmjwf" path="res://Scripts/MainMenu.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://dy3s08rggslxg" path="res://Resource/background.png" id="2"]
+[ext_resource type="FontFile" uid="uid://caoi7rb3mk2yg" path="res://Font/BMJUA_ttf.ttf" id="3"]
+
+[node name="MainMenu" type="Control" unique_id=745154007]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="BackGround" type="TextureRect" parent="." unique_id=2111287042]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2")
+stretch_mode = 2
+
+[node name="DimOverlay" type="ColorRect" parent="." unique_id=110889138]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.65)
+
+[node name="TitleBox" type="VBoxContainer" parent="." unique_id=1847006999]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -360.0
+offset_right = 280.0
+offset_bottom = 350.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="TitleBox" unique_id=317119999]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(0.95, 0.88, 0.6, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 4
+theme_override_constants/shadow_offset_y = 4
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 88
+text = "행소의 눈"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="TitleBox" unique_id=2077553581]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(0.75, 0.7, 0.55, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 26
+text = "— 유물 감정관 시뮬레이터 —"
+horizontal_alignment = 1
+
+[node name="Spacer1" type="Control" parent="TitleBox" unique_id=1080206510]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="HighScoreLabel" type="Label" parent="TitleBox" unique_id=853630795]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(1, 0.8, 0.2, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 28
+text = "최고 기록: —"
+horizontal_alignment = 1
+
+[node name="Spacer2" type="Control" parent="TitleBox" unique_id=177381779]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+
+[node name="StartBtn" type="Button" parent="TitleBox" unique_id=82227330]
+custom_minimum_size = Vector2(320, 70)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(0.95, 0.95, 0.9, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 36
+text = "게임 시작"
+
+[node name="Spacer3" type="Control" parent="TitleBox" unique_id=852025177]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+
+[node name="OptionsBtn" type="Button" parent="TitleBox" unique_id=151298178]
+custom_minimum_size = Vector2(320, 70)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(0.95, 0.95, 0.9, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 36
+text = "옵션"
+
+[node name="Spacer4" type="Control" parent="TitleBox" unique_id=412728774]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+
+[node name="QuitBtn" type="Button" parent="TitleBox" unique_id=2097508894]
+custom_minimum_size = Vector2(320, 70)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(0.95, 0.95, 0.9, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 36
+text = "게임 종료"
+
+[node name="OptionsPanel" type="Panel" parent="." unique_id=841157637]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -240.0
+offset_right = 300.0
+offset_bottom = 240.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="OptionsTitleLabel" type="Label" parent="OptionsPanel" unique_id=740525721]
+layout_mode = 0
+offset_top = 20.0
+offset_right = 600.0
+offset_bottom = 72.0
+theme_override_colors/font_color = Color(0.95, 0.88, 0.6, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 38
+text = "옵션"
+horizontal_alignment = 1
+
+[node name="BGMRow" type="HBoxContainer" parent="OptionsPanel" unique_id=1650058496]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 110.0
+offset_right = 560.0
+offset_bottom = 165.0
+
+[node name="BGMLabel" type="Label" parent="OptionsPanel/BGMRow" unique_id=1459999099]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.85, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 28
+text = "배경음"
+vertical_alignment = 1
+
+[node name="BGMSlider" type="HSlider" parent="OptionsPanel/BGMRow" unique_id=1769513282]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+value = 100.0
+
+[node name="ValueLabel" type="Label" parent="OptionsPanel/BGMRow" unique_id=1216634337]
+custom_minimum_size = Vector2(55, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 26
+text = "100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SFXRow" type="HBoxContainer" parent="OptionsPanel" unique_id=2028529791]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 195.0
+offset_right = 560.0
+offset_bottom = 250.0
+
+[node name="SFXLabel" type="Label" parent="OptionsPanel/SFXRow" unique_id=1817738035]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.85, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 28
+text = "효과음"
+vertical_alignment = 1
+
+[node name="SFXSlider" type="HSlider" parent="OptionsPanel/SFXRow" unique_id=550093728]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+value = 100.0
+
+[node name="ValueLabel" type="Label" parent="OptionsPanel/SFXRow" unique_id=1458922492]
+custom_minimum_size = Vector2(55, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 26
+text = "100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="OptionsCloseBtn" type="Button" parent="OptionsPanel" unique_id=650159388]
+layout_mode = 0
+offset_left = 175.0
+offset_top = 360.0
+offset_right = 425.0
+offset_bottom = 430.0
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 30
+text = "닫기"
+
+[connection signal="pressed" from="TitleBox/StartBtn" to="." method="_on_start_btn_pressed"]
+[connection signal="pressed" from="TitleBox/OptionsBtn" to="." method="_on_options_btn_pressed"]
+[connection signal="pressed" from="TitleBox/QuitBtn" to="." method="_on_quit_btn_pressed"]
+[connection signal="value_changed" from="OptionsPanel/BGMRow/BGMSlider" to="." method="_on_bgm_slider_value_changed"]
+[connection signal="value_changed" from="OptionsPanel/SFXRow/SFXSlider" to="." method="_on_sfx_slider_value_changed"]
+[connection signal="pressed" from="OptionsPanel/OptionsCloseBtn" to="." method="_on_options_close_btn_pressed"]

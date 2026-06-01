@@ -1,0 +1,6 @@
+[gd_resource type="AtlasTexture" format=3 uid="uid://do06ik5fngmru"]
+
+[ext_resource type="Texture2D" uid="uid://cif5202q2c0sp" path="res://Resource/Artifact/artifacts_sheet_02.png" id="1_qy40k"]
+
+[resource]
+atlas = ExtResource("1_qy40k")
