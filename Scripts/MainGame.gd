@@ -711,9 +711,9 @@ func ShowResultPopupAnimated(correct: bool, playerApproved: bool) -> void:
 	verdict.pivot_offset = Vector2(470, 60)
 	verdict.scale = Vector2(0.2, 0.2)
 	verdict.modulate = Color(1, 1, 1, 0)
-	verdict.text = "[center][color=%s][font_size=64][b]%s[/b][/font_size][/color][/center]" % \
-		["#44dd44" if correct else "#ff5555",
-		 "✓  정확한 판단" if correct else "✗  오    판"]
+	var verdict_text := "✓  정확한 판단" if correct else "✗  오    판"
+	verdict.text = "[center][color=%s][font_size=76]%s[/font_size][/color][/center]" % \
+		["#44dd44" if correct else "#ff5555", verdict_text]
 	ResultPopup.add_child(verdict)
 
 	var t_bounce := create_tween()
@@ -728,15 +728,15 @@ func ShowResultPopupAnimated(correct: bool, playerApproved: bool) -> void:
 	# ── Phase 3 : 행동 메시지 ─────────────────────────
 	var msg := ""
 	if correct:
-		msg = "[center][color=#dddddd]진품을 올바르게 [b]승인[/b]했습니다.[/color][/center]" \
+		msg = "[center][color=#dddddd]진품을 올바르게 승인했습니다.[/color][/center]" \
 			if playerApproved else \
-			"[center][color=#dddddd]위조품을 올바르게 [b]반려[/b]했습니다.[/color][/center]"
+			"[center][color=#dddddd]위조품을 올바르게 반려했습니다.[/color][/center]"
 	else:
-		msg = "[center][color=#ffaaaa]위조품을 [b]승인[/b]하고 말았습니다.[/color][/center]" \
+		msg = "[center][color=#ffaaaa]위조품을 승인하고 말았습니다.[/color][/center]" \
 			if playerApproved else \
-			"[center][color=#ffaaaa]진품을 [b]반려[/b]했습니다.[/color][/center]"
+			"[center][color=#ffaaaa]진품을 반려했습니다.[/color][/center]"
 
-	var msg_lbl := _make_result_label(msg, Vector2(30, 200), 28)
+	var msg_lbl := _make_result_label(msg, Vector2(30, 210), 42)
 	ResultPopup.add_child(msg_lbl)
 	_fade_in_node(msg_lbl, 0.28)
 
@@ -744,27 +744,27 @@ func ShowResultPopupAnimated(correct: bool, playerApproved: bool) -> void:
 	if not is_instance_valid(msg_lbl): return
 
 	# ── Phase 4 : 위조 사유 (위조품 관련 판정 시) ────
-	var next_y := 265.0
+	var next_y := 300.0
 	var show_reason := (correct and not playerApproved) or (not correct and playerApproved)
 	if show_reason:
 		var rc := "#aaaaaa" if correct else "#ff9999"
 		var reason_lbl := _make_result_label(
 			"[center][color=%s]위조 사유: %s[/color][/center]" \
 				% [rc, currentArtifact["fakeReason"]],
-			Vector2(30, next_y), 23)
+			Vector2(30, next_y), 34)
 		ResultPopup.add_child(reason_lbl)
 		_fade_in_node(reason_lbl, 0.28)
 		await get_tree().create_timer(0.38).timeout
 		if not is_instance_valid(reason_lbl): return
-		next_y += 78.0
+		next_y += 92.0
 
 	# ── Phase 5 : 점수 변동 ───────────────────────────
 	var dc := "#88dd88" if correct else "#dd8888"
 	var ds := "+10" if correct else "-5"
 
 	var delta_lbl := _make_result_label(
-		"[center][color=%s][font_size=42][b]%s점[/b][/font_size][/color][/center]" % [dc, ds],
-		Vector2(30, next_y), 26)
+		"[center][color=%s][font_size=58]%s점[/font_size][/color][/center]" % [dc, ds],
+		Vector2(30, next_y), 36)
 	ResultPopup.add_child(delta_lbl)
 	_fade_in_node(delta_lbl, 0.28)
 
@@ -775,9 +775,9 @@ func ShowResultPopupAnimated(correct: bool, playerApproved: bool) -> void:
 	var wc := GameManager.weekly_correct
 	var wi := GameManager.weekly_incorrect
 	var weekly_lbl := _make_result_label(
-		"[center][color=#888888]이번 주  봉급 대상 [color=#88dd88][b]%d건[/b][/color]   감점 대상 [color=#dd8888][b]%d건[/b][/color][/color][/center]" \
+		"[center][color=#888888]이번 주  봉급 대상 [color=#88dd88]%d건[/color]   감점 대상 [color=#dd8888]%d건[/color][/color][/center]" \
 			% [wc, wi],
-		Vector2(30, next_y + 68), 24)
+		Vector2(30, next_y + 88), 34)
 	ResultPopup.add_child(weekly_lbl)
 	_fade_in_node(weekly_lbl, 0.28)
 
@@ -786,8 +786,8 @@ func ShowResultPopupAnimated(correct: bool, playerApproved: bool) -> void:
 
 	# ── Phase 7 : 현재 총점 ───────────────────────────
 	var total_lbl := _make_result_label(
-		"[center][color=#ccbb88]현재 점수  [b]%d점[/b][/color][/center]" % score,
-		Vector2(30, next_y + 130), 30)
+		"[center][color=#ccbb88]현재 점수  %d점[/color][/center]" % score,
+		Vector2(30, next_y + 170), 44)
 	ResultPopup.add_child(total_lbl)
 	_fade_in_node(total_lbl, 0.28)
 
@@ -809,7 +809,9 @@ func _make_result_label(bbtext: String, pos: Vector2, font_size: int) -> RichTex
 	lbl.size = Vector2(940, 90)
 	lbl.position = pos
 	lbl.text = bbtext
-	lbl.add_theme_font_size_override("font_size", font_size)
+	# RichTextLabel은 "font_size"가 아니라 normal/bold 별도 항목을 사용한다
+	lbl.add_theme_font_size_override("normal_font_size", font_size)
+	lbl.add_theme_font_size_override("bold_font_size", font_size)
 	lbl.modulate = Color(1, 1, 1, 0)
 	return lbl
 
