@@ -9,6 +9,7 @@ var currentArtifact: Dictionary = {}
 
 const WEEKLY_SUMMARY_SCENE := "res://Scenes/WeeklySummary.tscn"
 const MAIN_MENU_SCENE      := "res://Scenes/MainMenu.tscn"
+const HANGSO_FONT          := preload("res://Font/BMJUA_ttf.ttf")
 
 # ──────────────────────────────────────────────
 # 게임 상태 (GameManager에 위임, 로컬 미러만 유지)
@@ -44,6 +45,12 @@ var day: int:
 @onready var ResultContent: RichTextLabel     = $ResultPopup/ResultContent
 @onready var NextArtifactBtn: Button          = $ResultPopup/NextArtifactBtn
 
+# 튜토리얼에서 강조할 버튼·이미지
+@onready var CommissionButton: Button         = $CommissionButton
+@onready var RuleBookButton: Button           = $RuleBookButton
+@onready var ApproveImg: TextureRect          = $ApproveImg
+@onready var RejectImg: TextureRect           = $RejectImg
+
 # 룰북 UI
 @onready var RuleBookUI: Control              = $RuleBookUI
 @onready var BookBackground: TextureRect      = $RuleBookUI/BookBackground
@@ -75,6 +82,34 @@ var _igopt_bgm_slider: HSlider = null
 var _igopt_sfx_slider: HSlider = null
 var _igopt_bgm_val:   Label  = null
 var _igopt_sfx_val:   Label  = null
+
+# ──────────────────────────────────────────────
+# 튜토리얼 (디버그 모드에서는 실행 안 함)
+# ──────────────────────────────────────────────
+enum TutStep { COMMISSION, RULEBOOK, PAGEFLIP, ARRANGE, INSPECT, INSPECT_CLOSE, JUDGE }
+var _tut_active: bool = false
+var _tut_step: int = 0
+var _tut_block_input: bool = false          # true면 게임 측 드래그/입력 차단
+var _tut_target_rect: Rect2 = Rect2()       # 현재 클릭 허용 영역(빨간 박스)
+var _tut_layer: CanvasLayer = null
+var _tut_root: Control = null               # 전체 클릭 차단막
+var _tut_dim: Array = []                     # 스포트라이트용 4분할 어둠막
+var _tut_box: ReferenceRect = null          # 강조 빨간 박스(주 대상)
+var _tut_box2: ReferenceRect = null         # 보조 빨간 박스(반려 버튼)
+var _tut_msg: Label = null
+var _tut_next_btn: Button = null
+var _tut_skip_btn: Button = null
+
+# ──────────────────────────────────────────────
+# 인트로 스토리 (튜토리얼 직전 1회)
+# ──────────────────────────────────────────────
+var _story_layer: CanvasLayer = null
+var _story_root: Control = null
+var _story_img: TextureRect = null
+var _story_label: Label = null
+var _story_next_btn: Button = null
+var _story_index: int = 0
+var _story_slides: Array = []
 
 # ──────────────────────────────────────────────
 # 초기화
@@ -130,6 +165,7 @@ func _ready() -> void:
 	UpdateScoreBar()
 	ShowNextArtifact()
 	_build_ingame_options()
+	_maybe_start_intro()
 
 # ──────────────────────────────────────────────
 # 데이터 로드 (CSV 파싱)
@@ -629,12 +665,11 @@ func UpdateCommissionPanel() -> void:
 func _on_inspect_btn_pressed() -> void:
 	AudioManager.play_ui()
 	InspectImage.texture = currentArtifact["image"]
-	InspectPopup.visible = true
-	InspectPopup.call_deferred("move_to_front")
+	_anim_open(InspectPopup)
 
 func _on_inspect_close_btn_pressed() -> void:
 	AudioManager.play_ui()
-	InspectPopup.visible = false
+	_anim_close(InspectPopup)
 
 # ──────────────────────────────────────────────
 # 승인 / 반려 버튼
@@ -642,6 +677,8 @@ func _on_inspect_close_btn_pressed() -> void:
 func _on_approve_btn_pressed() -> void:
 	if waiting_for_next:
 		return
+	if _tut_active:
+		_tutorial_finish()
 	waiting_for_next = true
 	InspectPopup.visible = false
 	AudioManager.play_button_pressed()
@@ -650,6 +687,8 @@ func _on_approve_btn_pressed() -> void:
 func _on_reject_btn_pressed() -> void:
 	if waiting_for_next:
 		return
+	if _tut_active:
+		_tutorial_finish()
 	waiting_for_next = true
 	InspectPopup.visible = false
 	AudioManager.play_button_pressed()
@@ -838,11 +877,76 @@ func _on_next_artifact_btn_pressed() -> void:
 # ──────────────────────────────────────────────
 # 점수 바 업데이트
 # ──────────────────────────────────────────────
+var _score_tween: Tween = null
+var _shown_score: int = 0
+
 func UpdateScoreBar() -> void:
 	var week_day := ((GameManager.day - 1) % 7) + 1
 	var week_num := (GameManager.day - 1) / 7 + 1
-	DayLabel.text   = "%d주 %d일" % [week_num, week_day]
-	ScoreLabel.text = "점수: %d  (최고: %d)" % [GameManager.score, GameManager.high_score]
+	DayLabel.text = "%d주 %d일" % [week_num, week_day]
+	_animate_score(GameManager.score)
+
+## 점수 숫자를 현재값 → 목표값까지 부드럽게 카운트업/다운
+func _animate_score(target: int) -> void:
+	if _score_tween != null and _score_tween.is_valid():
+		_score_tween.kill()
+	if _shown_score == target:
+		_set_score_text(float(target))
+		return
+	_score_tween = create_tween()
+	_score_tween.tween_method(_set_score_text, float(_shown_score), float(target), 0.45) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	# 점수 라벨 살짝 팝
+	ScoreLabel.pivot_offset = ScoreLabel.size / 2.0
+	var pop := create_tween()
+	pop.tween_property(ScoreLabel, "scale", Vector2(1.12, 1.12), 0.12).set_ease(Tween.EASE_OUT)
+	pop.tween_property(ScoreLabel, "scale", Vector2.ONE, 0.18) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _set_score_text(v: float) -> void:
+	_shown_score = int(round(v))
+	ScoreLabel.text = "점수: %d  (최고: %d)" % [_shown_score, GameManager.high_score]
+
+# ──────────────────────────────────────────────
+# 부드러운 팝업 열기/닫기 (TWEEN: 페이드 + 선택적 스케일)
+# ──────────────────────────────────────────────
+func _anim_open(ctrl: Control, use_scale: bool = false) -> void:
+	_kill_anim_tween(ctrl)
+	ctrl.visible = true
+	ctrl.call_deferred("move_to_front")
+	ctrl.modulate.a = 0.0
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(ctrl, "modulate:a", 1.0, 0.18)
+	if use_scale:
+		ctrl.pivot_offset = ctrl.size / 2.0
+		ctrl.scale = Vector2(0.9, 0.9)
+		tw.tween_property(ctrl, "scale", Vector2.ONE, 0.24) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	ctrl.set_meta("_anim_tw", tw)
+
+func _anim_close(ctrl: Control, use_scale: bool = false) -> void:
+	if not ctrl.visible:
+		return
+	_kill_anim_tween(ctrl)
+	if use_scale:
+		ctrl.pivot_offset = ctrl.size / 2.0
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(ctrl, "modulate:a", 0.0, 0.15)
+	if use_scale:
+		tw.tween_property(ctrl, "scale", Vector2(0.9, 0.9), 0.15).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(func():
+		ctrl.visible = false
+		ctrl.modulate.a = 1.0
+		ctrl.scale = Vector2.ONE)
+	ctrl.set_meta("_anim_tw", tw)
+
+func _kill_anim_tween(ctrl: Control) -> void:
+	if ctrl.has_meta("_anim_tw"):
+		var prev = ctrl.get_meta("_anim_tw")
+		if prev is Tween and prev.is_valid():
+			prev.kill()
 
 # ──────────────────────────────────────────────
 # 룰북 초기화
@@ -985,6 +1089,9 @@ func update_page_display() -> void:
 # 전역 입력: 드래그 모션 / 마우스 릴리즈 / ESC 처리
 # ──────────────────────────────────────────────
 func _input(event: InputEvent) -> void:
+	# 인트로/튜토리얼 차단 중에는 게임 측 드래그/입력을 막는다
+	if _tut_block_input or _story_layer != null:
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		var mouse_pos := get_global_mouse_position()
 		if event.pressed:
@@ -1044,6 +1151,9 @@ func _input(event: InputEvent) -> void:
 			InspectPopup.position = get_global_mouse_position() + _inspect_drag_offset
 
 func _unhandled_input(event: InputEvent) -> void:
+	# 인트로/튜토리얼 진행 중에는 ESC(옵션/팝업 토글)를 막는다
+	if _tut_active or _story_layer != null:
+		return
 	if not (event is InputEventKey
 			and event.pressed
 			and not event.echo
@@ -1052,7 +1162,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	# ① 인게임 옵션이 열려 있으면 먼저 닫기
 	if _ingame_options != null and _ingame_options.visible:
-		_ingame_options.visible = false
+		_anim_close(_ingame_options, true)
 		get_viewport().set_input_as_handled()
 		return
 
@@ -1063,7 +1173,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			open_uis.append(ui)
 	if not open_uis.is_empty():
 		open_uis.sort_custom(func(a, b): return a.get_index() < b.get_index())
-		open_uis.back().visible = false
+		_anim_close(open_uis.back())
 		get_viewport().set_input_as_handled()
 		return
 
@@ -1072,8 +1182,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		# 슬라이더를 현재 볼륨값으로 동기화
 		_igopt_bgm_slider.value = AudioManager.bgm_volume * 100.0
 		_igopt_sfx_slider.value = AudioManager.sfx_volume * 100.0
-		_ingame_options.visible = true
-		_ingame_options.move_to_front()
+		_anim_open(_ingame_options, true)
 		get_viewport().set_input_as_handled()
 
 # ──────────────────────────────────────────────
@@ -1084,9 +1193,9 @@ func _build_ingame_options() -> void:
 	_ingame_options = Panel.new()
 	_ingame_options.name    = "IngameOptions"
 	_ingame_options.visible = false
-	_ingame_options.size    = Vector2(540, 380)
+	_ingame_options.size    = Vector2(540, 470)
 	# 화면 중앙에 배치 (1920×1080 기준)
-	_ingame_options.position = Vector2(690, 350)
+	_ingame_options.position = Vector2(690, 305)
 	var bg := StyleBoxFlat.new()
 	bg.bg_color     = Color(0.06, 0.05, 0.10, 0.96)
 	bg.border_color = Color(0.50, 0.42, 0.68, 1.0)
@@ -1125,15 +1234,29 @@ func _build_ingame_options() -> void:
 		AudioManager.set_sfx_volume(v / 100.0)
 		_igopt_sfx_val.text = "%d" % int(v))
 
+	# ── 메인 메뉴로 돌아가기 버튼 ───────────────
+	var menu_btn := Button.new()
+	menu_btn.text     = "메인 메뉴로 돌아가기"
+	menu_btn.position = Vector2(110, 288)
+	menu_btn.size     = Vector2(320, 56)
+	menu_btn.add_theme_font_override("font", HANGSO_FONT)
+	menu_btn.add_theme_font_size_override("font_size", 26)
+	menu_btn.pressed.connect(func():
+		AudioManager.play_ui()
+		_ingame_options.visible = false
+		SceneTransition.fade_to(MAIN_MENU_SCENE))
+	_ingame_options.add_child(menu_btn)
+
 	# ── 닫기 버튼 ──────────────────────────────
 	var close_btn := Button.new()
 	close_btn.text     = "닫기  ( ESC )"
-	close_btn.position = Vector2(155, 295)
+	close_btn.position = Vector2(155, 368)
 	close_btn.size     = Vector2(230, 56)
+	close_btn.add_theme_font_override("font", HANGSO_FONT)
 	close_btn.add_theme_font_size_override("font_size", 28)
 	close_btn.pressed.connect(func():
 		AudioManager.play_ui()
-		_ingame_options.visible = false)
+		_anim_close(_ingame_options, true))
 	_ingame_options.add_child(close_btn)
 
 ## 슬라이더 한 행(HBoxContainer) 생성 헬퍼
@@ -1172,14 +1295,16 @@ func _make_slider_row(label_text: String, y: float, init_val: float) -> HBoxCont
 # 드래그 — 의뢰서 패널
 # ──────────────────────────────────────────────
 func _on_commission_button_pressed() -> void:
-	CommissionPanel.visible = not CommissionPanel.visible
 	if CommissionPanel.visible:
+		AudioManager.play_ui()
+		_anim_close(CommissionPanel)
+	else:
 		AudioManager.play_book_page()
-		CommissionPanel.call_deferred("move_to_front")
+		_anim_open(CommissionPanel)
 
 func _on_commission_panel_close_pressed() -> void:
 	AudioManager.play_ui()
-	CommissionPanel.visible = false
+	_anim_close(CommissionPanel)
 
 func _on_commission_panel_gui_input(_event: InputEvent) -> void:
 	pass  # 드래그 처리는 _input() 에서 일괄 처리
@@ -1193,12 +1318,11 @@ func _on_rulebook_bg_gui_input(_event: InputEvent) -> void:
 
 func _on_rule_book_button_pressed() -> void:
 	AudioManager.play_ui()
-	RuleBookUI.visible = true
-	RuleBookUI.call_deferred("move_to_front")
+	_anim_open(RuleBookUI)
 
 func _on_close_button_pressed() -> void:
 	AudioManager.play_ui()
-	RuleBookUI.visible = false
+	_anim_close(RuleBookUI)
 
 func _on_next_page_button_pressed() -> void:
 	if current_page_index + 2 < manual_pages.size():
@@ -1211,3 +1335,391 @@ func _on_prev_page_button_pressed() -> void:
 		current_page_index -= 2
 		update_page_display()
 		AudioManager.play_book_page()
+
+# ──────────────────────────────────────────────
+# 튜토리얼 (디버그 모드 / 1일차가 아니면 실행 안 함)
+# ──────────────────────────────────────────────
+func _maybe_start_intro() -> void:
+	# 디버그 모드이거나, 첫 주(1일차) 시작이 아니면 인트로/튜토리얼 생략
+	if GameManager.debug_mode:
+		return
+	if GameManager.day != 1:
+		return
+	_build_story_ui()
+	_story_show(0)
+
+func _start_tutorial() -> void:
+	_build_tutorial_ui()
+	_tut_active = true
+	_tut_step = TutStep.COMMISSION
+	_tut_apply_step()
+
+# ── 인트로 스토리 ─────────────────────────────────────
+func _build_story_ui() -> void:
+	# 각 슬라이드: {text, image}. image 파일이 있으면 자동 표시, 없으면 텍스트만.
+	_story_slides = [
+		{"text": "계명대학교 행소박물관.\n여느 때와 다름없는 조용한 아침이었다.",
+		 "image": "res://Resource/Story/story_1.jpg"},
+		{"text": "그런데 전시실 한가운데, 허공이 일렁이더니\n정체불명의 [게이트]가 열렸다.",
+		 "image": "res://Resource/Story/story_2.png"},
+		{"text": "게이트 너머에서 낯선 이방인들이\n갖가지 유물을 손에 들고 걸어 나왔다.",
+		 "image": "res://Resource/Story/story_3.png"},
+		{"text": "\"이 유물을 박물관에 등록하고 싶소.\"\n그들은 저마다 의뢰서를 내밀었다.",
+		 "image": "res://Resource/Story/story_4.png"},
+		{"text": "하지만 그 속에는 진품으로 둔갑한\n교묘한 위조품도 섞여 있다는데…",
+		 "image": "res://Resource/Story/story_5.png"},
+		{"text": "당신은 행소박물관의 유물 감정관.\n진품과 위조품을 가려내라!",
+		 "image": "res://Resource/Story/story_6.png"},
+	]
+
+	_story_layer = CanvasLayer.new()
+	_story_layer.layer = 110
+	add_child(_story_layer)
+
+	_story_root = Control.new()
+	_story_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_story_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	_story_root.gui_input.connect(_on_story_root_gui_input)
+	_story_layer.add_child(_story_root)
+
+	# 어두운 배경
+	var bgc := ColorRect.new()
+	bgc.color = Color(0.02, 0.02, 0.04, 0.97)
+	bgc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bgc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_story_root.add_child(bgc)
+
+	# 일러스트 영역 (이미지가 있을 때만 표시)
+	_story_img = TextureRect.new()
+	_story_img.position = Vector2(560, 110)
+	_story_img.size = Vector2(800, 470)
+	_story_img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_story_img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_story_img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_story_img.visible = false
+	_story_root.add_child(_story_img)
+
+	# 내레이션 패널
+	var tpanel := Panel.new()
+	tpanel.position = Vector2(360, 630)
+	tpanel.size = Vector2(1200, 230)
+	tpanel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tbg := StyleBoxFlat.new()
+	tbg.bg_color     = Color(0.06, 0.05, 0.10, 0.9)
+	tbg.border_color = Color(0.55, 0.45, 0.70, 1.0)
+	tbg.set_border_width_all(2)
+	for c in [&"corner_radius_top_left", &"corner_radius_top_right",
+			  &"corner_radius_bottom_left", &"corner_radius_bottom_right"]:
+		tbg.set(c, 10)
+	tpanel.add_theme_stylebox_override("panel", tbg)
+	_story_root.add_child(tpanel)
+
+	_story_label = Label.new()
+	_story_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_story_label.offset_left = 40
+	_story_label.offset_right = -40
+	_story_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_story_label.add_theme_font_override("font", HANGSO_FONT)
+	_story_label.add_theme_font_size_override("font_size", 40)
+	_story_label.add_theme_color_override("font_color", Color(1, 0.97, 0.92))
+	_story_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_story_label.vertical_alignment   = VERTICAL_ALIGNMENT_CENTER
+	_story_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tpanel.add_child(_story_label)
+
+	# 다음 버튼
+	_story_next_btn = Button.new()
+	_story_next_btn.add_theme_font_override("font", HANGSO_FONT)
+	_story_next_btn.add_theme_font_size_override("font_size", 28)
+	_story_next_btn.position = Vector2(1558, 900)
+	_story_next_btn.size = Vector2(300, 70)
+	_story_next_btn.text = "다음 ▶"
+	_story_next_btn.pressed.connect(_story_advance)
+	_story_root.add_child(_story_next_btn)
+
+	# 건너뛰기 버튼
+	var skip := Button.new()
+	skip.add_theme_font_override("font", HANGSO_FONT)
+	skip.add_theme_font_size_override("font_size", 22)
+	skip.position = Vector2(1620, 28)
+	skip.size = Vector2(270, 54)
+	skip.text = "건너뛰기 ▶▶"
+	skip.pressed.connect(_story_finish)
+	_story_root.add_child(skip)
+
+	# 하단 힌트
+	var hint := Label.new()
+	hint.add_theme_font_override("font", HANGSO_FONT)
+	hint.add_theme_font_size_override("font_size", 20)
+	hint.add_theme_color_override("font_color", Color(0.7, 0.68, 0.78))
+	hint.position = Vector2(70, 905)
+	hint.size = Vector2(700, 30)
+	hint.text = "(화면을 클릭해도 다음으로 넘어갑니다)"
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_story_root.add_child(hint)
+
+func _story_show(i: int) -> void:
+	_story_index = i
+	var slide: Dictionary = _story_slides[i]
+	_story_label.text = slide["text"]
+	var path: String = slide.get("image", "")
+	if path != "" and ResourceLoader.exists(path):
+		_story_img.texture = load(path)
+		_story_img.visible = true
+	else:
+		_story_img.visible = false
+	_story_next_btn.text = "시작하기 ▶" if i >= _story_slides.size() - 1 else "다음 ▶"
+
+func _on_story_root_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_story_advance()
+
+func _story_advance() -> void:
+	AudioManager.play_book_page()
+	if _story_index + 1 >= _story_slides.size():
+		_story_finish()
+	else:
+		_story_show(_story_index + 1)
+
+func _story_finish() -> void:
+	if is_instance_valid(_story_layer):
+		_story_layer.queue_free()
+	_story_layer = null
+	_story_root = null
+	_start_tutorial()
+
+func _build_tutorial_ui() -> void:
+	_tut_layer = CanvasLayer.new()
+	_tut_layer.layer = 100               # 게임 UI(0)보다 위, 씬 전환(128)보다 아래
+	add_child(_tut_layer)
+
+	# 전체 클릭 차단막
+	_tut_root = Control.new()
+	_tut_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_tut_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	_tut_root.gui_input.connect(_on_tut_root_gui_input)
+	_tut_layer.add_child(_tut_root)
+
+	# 스포트라이트용 4분할 어둠막
+	for i in range(4):
+		var d := ColorRect.new()
+		d.color = Color(0, 0, 0, 0.62)
+		d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_tut_root.add_child(d)
+		_tut_dim.append(d)
+
+	# 강조 빨간 박스 2개
+	_tut_box  = _make_tut_box()
+	_tut_box2 = _make_tut_box()
+	_tut_root.add_child(_tut_box)
+	_tut_root.add_child(_tut_box2)
+
+	# 안내 말풍선 (상단 중앙)
+	var bubble := Panel.new()
+	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bubble.position = Vector2(460, 95)
+	bubble.size = Vector2(1000, 112)
+	var bbg := StyleBoxFlat.new()
+	bbg.bg_color     = Color(0.06, 0.05, 0.10, 0.92)
+	bbg.border_color = Color(1, 0.35, 0.35, 1.0)
+	bbg.set_border_width_all(3)
+	for c in [&"corner_radius_top_left", &"corner_radius_top_right",
+			  &"corner_radius_bottom_left", &"corner_radius_bottom_right"]:
+		bbg.set(c, 10)
+	bubble.add_theme_stylebox_override("panel", bbg)
+	_tut_root.add_child(bubble)
+
+	_tut_msg = Label.new()
+	_tut_msg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_tut_msg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tut_msg.add_theme_font_override("font", HANGSO_FONT)
+	_tut_msg.add_theme_font_size_override("font_size", 28)
+	_tut_msg.add_theme_color_override("font_color", Color(1, 0.96, 0.9, 1))
+	_tut_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tut_msg.vertical_alignment   = VERTICAL_ALIGNMENT_CENTER
+	_tut_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	bubble.add_child(_tut_msg)
+
+	# "다음 ▶" 버튼 (이동 안내 단계 전용)
+	_tut_next_btn = Button.new()
+	_tut_next_btn.text = "다음 ▶"
+	_tut_next_btn.add_theme_font_override("font", HANGSO_FONT)
+	_tut_next_btn.add_theme_font_size_override("font_size", 28)
+	_tut_next_btn.position = Vector2(860, 224)
+	_tut_next_btn.size = Vector2(200, 60)
+	_tut_next_btn.visible = false
+	_tut_next_btn.pressed.connect(_on_tut_next_pressed)
+	_tut_root.add_child(_tut_next_btn)
+
+	# Skip 버튼 (우상단)
+	_tut_skip_btn = Button.new()
+	_tut_skip_btn.text = "튜토리얼 건너뛰기 ▶▶"
+	_tut_skip_btn.add_theme_font_override("font", HANGSO_FONT)
+	_tut_skip_btn.add_theme_font_size_override("font_size", 22)
+	_tut_skip_btn.position = Vector2(1556, 20)
+	_tut_skip_btn.size = Vector2(340, 56)
+	_tut_skip_btn.pressed.connect(_on_tut_skip_pressed)
+	_tut_root.add_child(_tut_skip_btn)
+
+func _make_tut_box() -> ReferenceRect:
+	var b := ReferenceRect.new()
+	b.border_color = Color(1, 0.2, 0.2, 1)
+	b.border_width = 5.0
+	b.editor_only  = false               # 실행 중에도 테두리 표시
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.visible = false
+	return b
+
+# 단계별 화면 구성
+func _tut_apply_step() -> void:
+	_tut_box.visible = false
+	_tut_box2.visible = false
+	_tut_next_btn.visible = false
+	match _tut_step:
+		TutStep.COMMISSION:
+			_tut_block_input = true
+			_tut_set_block(true)
+			_tut_msg.text = "① 먼저 [의뢰서]를 열어봅시다.\n빨간 박스를 클릭하세요."
+			_tut_focus_node(CommissionButton)
+		TutStep.RULEBOOK:
+			_tut_block_input = true
+			_tut_set_block(true)
+			_tut_msg.text = "② 유물 규정이 담긴 [규정집]을 펼쳐봅시다.\n빨간 박스를 클릭하세요."
+			_tut_focus_node(RuleBookButton)
+		TutStep.PAGEFLIP:
+			RuleBookUI.visible = true
+			RuleBookUI.move_to_front()
+			_tut_block_input = true
+			_tut_set_block(true)
+			_tut_msg.text = "③ 규정집은 화살표로 좌우 페이지를 넘길 수 있어요.\n[다음 페이지] 화살표를 클릭해보세요."
+			_tut_focus_node(NextButton)
+		TutStep.ARRANGE:
+			_tut_block_input = false
+			_tut_set_block(false)
+			_tut_msg.text = "④ 창이 겹치면 보고 싶은 창을 [클릭]해 맨 앞으로 올리거나,\n[드래그]로 옮길 수 있어요. 직접 정리한 뒤 [다음]."
+			_tut_next_btn.visible = true
+		TutStep.INSPECT:
+			CommissionPanel.visible = true
+			CommissionPanel.move_to_front()
+			_tut_block_input = true
+			_tut_set_block(true)
+			_tut_msg.text = "⑤ 의뢰서의 [실물 검사]로 유물의 외형을 확인하세요.\n빨간 박스를 클릭하세요."
+			_tut_focus_node(InspectButton)
+		TutStep.INSPECT_CLOSE:
+			_tut_block_input = true
+			_tut_set_block(true)
+			_tut_msg.text = "⑥ 외형을 확인했으면 팝업의 [닫기] 버튼으로 닫으세요.\n빨간 박스를 클릭하세요."
+			_tut_focus_node(InspectCloseBtn)
+		TutStep.JUDGE:
+			# 아래 승인/반려 버튼이 가려지지 않도록 켜져있는 창을 모두 닫는다
+			CommissionPanel.visible = false
+			RuleBookUI.visible = false
+			InspectPopup.visible = false
+			# 버튼은 강조만 하고 클릭은 막는다 → [다음]으로만 진행
+			_tut_block_input = true
+			_tut_set_block(true)
+			_tut_target_rect = Rect2()      # 클릭 허용 영역 없음(버튼 클릭 차단)
+			_tut_msg.text = "⑦ 판정은 아래 [진품 승인] · [가품 반려] 버튼으로 합니다.\n비교해보고 눌러보세요!  ([다음]을 누르면 자유 조작)"
+			_tut_next_btn.visible = true
+			var ra := _node_screen_rect(ApproveImg)
+			var rb := _node_screen_rect(RejectImg)
+			_tut_spotlight(ra.merge(rb))
+			_tut_box.visible = true
+			_tut_box2.visible = true
+			_tut_place_rect(_tut_box,  ra)
+			_tut_place_rect(_tut_box2, rb)
+
+func _tut_set_block(b: bool) -> void:
+	if _tut_root == null:
+		return
+	_tut_root.mouse_filter = Control.MOUSE_FILTER_STOP if b else Control.MOUSE_FILTER_IGNORE
+	for d in _tut_dim:
+		d.visible = b
+
+func _tut_focus_node(c: Control) -> void:
+	var r := _node_screen_rect(c)
+	_tut_target_rect = r
+	_tut_spotlight(r)
+	_tut_box.visible = true
+	_tut_place_rect(_tut_box, r)
+
+# 노드의 실제 화면 사각형 (자체 scale·좌우 반전 반영)
+func _node_screen_rect(c: Control) -> Rect2:
+	var pos := c.global_position
+	var sz := c.size * c.scale
+	if sz.x < 0.0:
+		pos.x += sz.x
+		sz.x = -sz.x
+	if sz.y < 0.0:
+		pos.y += sz.y
+		sz.y = -sz.y
+	return Rect2(pos, sz)
+
+func _tut_place_rect(ctrl: Control, r: Rect2) -> void:
+	var pad := 8.0
+	ctrl.position = r.position - Vector2(pad, pad)
+	ctrl.size = r.size + Vector2(pad * 2.0, pad * 2.0)
+
+# 대상 영역만 남기고 화면을 어둡게 (4분할)
+func _tut_spotlight(r: Rect2) -> void:
+	var vp := get_viewport_rect().size
+	var rx := r.position.x + r.size.x
+	var by := r.position.y + r.size.y
+	_tut_dim[0].position = Vector2.ZERO
+	_tut_dim[0].size = Vector2(vp.x, max(0.0, r.position.y))
+	_tut_dim[1].position = Vector2(0, by)
+	_tut_dim[1].size = Vector2(vp.x, max(0.0, vp.y - by))
+	_tut_dim[2].position = Vector2(0, r.position.y)
+	_tut_dim[2].size = Vector2(max(0.0, r.position.x), r.size.y)
+	_tut_dim[3].position = Vector2(rx, r.position.y)
+	_tut_dim[3].size = Vector2(max(0.0, vp.x - rx), r.size.y)
+
+func _on_tut_root_gui_input(event: InputEvent) -> void:
+	if not _tut_block_input:
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if _tut_target_rect.has_point(event.position):
+			_tut_do_target_action()
+
+func _tut_do_target_action() -> void:
+	match _tut_step:
+		TutStep.COMMISSION:
+			_on_commission_button_pressed()
+		TutStep.RULEBOOK:
+			_on_rule_book_button_pressed()
+		TutStep.PAGEFLIP:
+			_on_next_page_button_pressed()
+		TutStep.INSPECT:
+			_on_inspect_btn_pressed()
+		TutStep.INSPECT_CLOSE:
+			_on_inspect_close_btn_pressed()
+	_tut_advance()
+
+func _tut_advance() -> void:
+	_tut_step += 1
+	_tut_apply_step()
+
+func _on_tut_next_pressed() -> void:
+	AudioManager.play_ui()
+	# 마지막(판정) 단계에서 [다음]은 튜토리얼을 끝내고 자유 조작으로
+	if _tut_step == TutStep.JUDGE:
+		_tutorial_finish()
+	else:
+		_tut_advance()
+
+func _on_tut_skip_pressed() -> void:
+	AudioManager.play_ui()
+	_tutorial_finish()
+
+func _tutorial_finish() -> void:
+	if not _tut_active:
+		return
+	_tut_active = false
+	_tut_block_input = false
+	if is_instance_valid(_tut_layer):
+		_tut_layer.queue_free()
+	_tut_layer = null
+	_tut_root  = null
+	_tut_box   = null
+	_tut_box2  = null
+	_tut_dim.clear()
