@@ -172,23 +172,107 @@ func LoadArtifactDataFromTXT() -> void:
 
 	print("데이터 로드 완료. 총 유물: ", ArtifactList.size())
 
-# ──────────────────────────────────────────────
-# 진품 후처리: 규칙 위반 자동 감지
-# ──────────────────────────────────────────────
-# "진짜 유물이지만 규정상 반려해야 하는" 케이스를 처리한다.
-# 예: 깨진 마나 물약은 진짜이지만 DEPLETED 상태이므로 매입 불가.
-func ValidateGenuineArtifact(result: Dictionary) -> Dictionary:
-	if not result["isGenuine"]:
-		return result
+	# 데이터 무결성 검사 — 의도된 함정 외에 규칙 위반이 있으면 경고 출력
+	for art in ArtifactList:
+		var probe := {
+			"material": art.CorrectMaterial, "signature": art.CorrectSignature,
+			"type": art.CorrectType, "color": art.CorrectColor,
+			"rarity": art.CorrectRarity, "origin": art.CorrectOrigin,
+			"condition": art.CorrectCondition, "specialRule": art.SpecialRule,
+		}
+		var chk := _evaluate_validity(probe)
+		if not chk["valid"]:
+			print("[데이터 검증] 규칙 위반/함정: %s (%s) — %s" % [art.Id, art.ArtifactName, chk["reason"]])
 
-	# 소진(DEPLETED) 무기/물약 → 매입 불가 규정
-	if result["condition"] == ArtifactData.ECondition.DEPLETED:
-		var t = result["type"]
-		if t == ArtifactData.EType.POTION or t == ArtifactData.EType.WEAPON:
-			result["isGenuine"] = false
-			result["fakeReason"] = "소진(DEPLETED) 상태의 무기/물약 — 매입 불가 규정"
+# ──────────────────────────────────────────────
+# 통합 규칙 검증 (모든 합법성 판단의 단일 기준)
+# ──────────────────────────────────────────────
+# 의뢰서에 표시되는 속성만으로 규칙 위반 여부를 판정한다.
+# (이미지-품명 불일치 위조는 여기서 다루지 않고 별도 처리)
+# 반환: { "valid": bool, "reason": String }
+func _evaluate_validity(a: Dictionary) -> Dictionary:
+	var mat  = a["material"]
+	var sig  = a["signature"]
+	var typ  = a["type"]
+	var col  = a["color"]
+	var rar  = a["rarity"]
+	var ori  = a["origin"]
+	var cond = a["condition"]
+	var sr   = a["specialRule"]
 
-	return result
+	# R2: 위조 마크 — 무조건 거부
+	if sig == ArtifactData.ESignature.FAKE_MARK:
+		return _invalid("위조 마크(FAKE_MARK) 발견 — 즉시 거부")
+
+	# R1: 출처별 공식 각인 규정 (NONE/CURSE 각인은 어느 출처든 허용)
+	if ori == ArtifactData.EOrigin.ROYAL_CAPITAL:
+		if sig == ArtifactData.ESignature.ARTISAN:
+			return _invalid("왕도(ROYAL_CAPITAL) 출처에 장인(ARTISAN) 각인 — 왕실 전용")
+	elif ori == ArtifactData.EOrigin.DWARF_MINE:
+		if sig == ArtifactData.ESignature.ROYAL:
+			return _invalid("드워프 광산(DWARF_MINE) 출처에 왕실(ROYAL) 각인 — 장인 전용")
+	elif ori == ArtifactData.EOrigin.ELF_FOREST:
+		if sig == ArtifactData.ESignature.ROYAL:
+			return _invalid("엘프 숲(ELF_FOREST) 출처에 왕실(ROYAL) 각인 — 장인 전용")
+	elif ori == ArtifactData.EOrigin.UNKNOWN:
+		if sig == ArtifactData.ESignature.ROYAL or sig == ArtifactData.ESignature.ARTISAN:
+			return _invalid("출처 미상(UNKNOWN)에 공식 각인 — 인증 기관 위조")
+
+	# R3: 출처별 재질 규정
+	if ori == ArtifactData.EOrigin.ROYAL_CAPITAL:
+		if mat == ArtifactData.EMaterial.WOOD or mat == ArtifactData.EMaterial.BONE:
+			return _invalid("왕도(ROYAL_CAPITAL) 반출 금지 재질(나무/뼈)")
+	elif ori == ArtifactData.EOrigin.DWARF_MINE:
+		if not (mat == ArtifactData.EMaterial.IRON or mat == ArtifactData.EMaterial.GOLD \
+			or mat == ArtifactData.EMaterial.SILVER or mat == ArtifactData.EMaterial.STONE):
+			return _invalid("드워프 광산(DWARF_MINE) 비허용 재질 — 금속·돌만 허용")
+	elif ori == ArtifactData.EOrigin.ELF_FOREST:
+		if mat == ArtifactData.EMaterial.IRON or mat == ArtifactData.EMaterial.GOLD \
+			or mat == ArtifactData.EMaterial.SILVER:
+			return _invalid("엘프 숲(ELF_FOREST) 금속 재질 불가")
+
+	# R5: 물약은 유리 용기 필수
+	if typ == ArtifactData.EType.POTION and mat != ArtifactData.EMaterial.GLASS:
+		return _invalid("물약(POTION)인데 유리(GLASS) 용기가 아님")
+
+	# R6: 전설 등급은 왕실 각인 전용
+	if rar == ArtifactData.ERarity.LEGENDARY and sig != ArtifactData.ESignature.ROYAL:
+		return _invalid("전설(LEGENDARY) 등급인데 왕실(ROYAL) 각인이 아님")
+
+	# R8(신규): 전설 등급은 왕도 출처 전용
+	if rar == ArtifactData.ERarity.LEGENDARY and ori != ArtifactData.EOrigin.ROYAL_CAPITAL:
+		return _invalid("전설(LEGENDARY) 등급인데 왕도(ROYAL_CAPITAL) 출처가 아님")
+
+	# R9(신규): 저주 각인은 보라색이어야 함
+	if sig == ArtifactData.ESignature.CURSE and col != ArtifactData.EColor.PURPLE:
+		return _invalid("저주(CURSE) 각인인데 색상이 보라(PURPLE)가 아님")
+
+	# R4: 마력 상태 규정
+	if cond == ArtifactData.ECondition.DEPLETED:
+		if typ == ArtifactData.EType.WEAPON or typ == ArtifactData.EType.POTION:
+			return _invalid("소진(DEPLETED) 상태의 무기/물약 — 매입 불가")
+	elif cond == ArtifactData.ECondition.CORRUPTED:
+		if sig != ArtifactData.ESignature.CURSE:
+			return _invalid("오염(CORRUPTED) 상태인데 저주(CURSE) 각인이 없음")
+
+	# R7: 유물 전용 특이 규칙
+	if sr == ArtifactData.ESpecialRule.MUST_BE_ACTIVE:
+		if cond != ArtifactData.ECondition.ACTIVE:
+			return _invalid("[규칙 위반] 마력 상태 ACTIVE 필수 유물")
+	elif sr == ArtifactData.ESpecialRule.MUST_BE_ARTISAN:
+		if sig != ArtifactData.ESignature.ARTISAN:
+			return _invalid("[규칙 위반] 장인(ARTISAN) 각인 필수 유물")
+	elif sr == ArtifactData.ESpecialRule.MUST_BE_ROYAL:
+		if sig != ArtifactData.ESignature.ROYAL:
+			return _invalid("[규칙 위반] 왕실(ROYAL) 각인 필수 유물")
+	elif sr == ArtifactData.ESpecialRule.MUST_HAVE_CURSE:
+		if sig != ArtifactData.ESignature.CURSE:
+			return _invalid("[규칙 위반] 저주(CURSE) 각인 필수 유물")
+
+	return { "valid": true, "reason": "" }
+
+func _invalid(reason: String) -> Dictionary:
+	return { "valid": false, "reason": reason }
 
 # ──────────────────────────────────────────────
 # 위조품 생성 로직 (기믹 0~14, 일수 기반 가중치)
@@ -227,6 +311,11 @@ func _build_gimmick_weights(base: ArtifactData) -> Dictionary:
 		w[13] = min(15, (day - 2) * 4)  # 복합 위조
 		w[14] = min(15, (day - 2) * 3)  # 동일 분류 이미지 교체
 
+	# ── 신규 규칙 기믹 ────────────────────────────────────
+	w[16] = 7                           # 저주 각인 색상 위조 (R9)
+	if day >= 2:
+		w[15] = min(12, day * 3)        # 전설 등급 출처 위조 (R8)
+
 	return w
 
 # 가중치 Dictionary에서 랜덤 기믹 ID 추출
@@ -242,12 +331,14 @@ func _pick_weighted_gimmick(weights: Dictionary) -> int:
 			return id
 	return weights.keys()[0]
 
+const IMAGE_GIMMICKS := [6, 14]   # 이미지-품명 불일치 위조 (속성 검증 제외)
+
 func GenerateRandomArtifact() -> Dictionary:
 	if ArtifactList.is_empty():
 		return {}
 
 	var base = ArtifactList.pick_random()
-	var result = {
+	var genuine := {
 		"name":        base.ArtifactName,
 		"image":       base.ArtifactImage,
 		"isGenuine":   true,
@@ -262,11 +353,22 @@ func GenerateRandomArtifact() -> Dictionary:
 		"specialRule": base.SpecialRule,
 	}
 
-	# 50% 확률로 위조품 생성
-	if randf() > 0.5:
-		result["isGenuine"] = false
+	# ── 진품 경로 ────────────────────────────────────────
+	# 데이터 자체가 규칙을 위반하는 의도된 함정은 위조로 처리
+	if randf() <= 0.5:
+		var gv := _evaluate_validity(genuine)
+		if not gv["valid"]:
+			genuine["isGenuine"]  = false
+			genuine["fakeReason"] = gv["reason"]
+		return genuine
 
-		var gimmick := _pick_weighted_gimmick(_build_gimmick_weights(base))
+	# ── 위조 경로 ────────────────────────────────────────
+	# 기믹 적용 후 실제 규칙 위반이 생겼을 때만 채택(감지 불가 위조 방지)
+	var weights := _build_gimmick_weights(base)
+	for _attempt in range(8):
+		var result := genuine.duplicate()
+		result["isGenuine"] = false
+		var gimmick := _pick_weighted_gimmick(weights)
 
 		match gimmick:
 			# ────────────────────────────────────────────────
@@ -428,7 +530,42 @@ func GenerateRandomArtifact() -> Dictionary:
 					result["image"] = same_type[0].ArtifactImage
 				result["fakeReason"] = "실물 검사 결과 의뢰서 품명과 외형 불일치 (동일 분류 내 교체)"
 
-	return ValidateGenuineArtifact(result)
+			15: # 전설 등급 위장 — 왕도 출처가 아님 (R8)
+				result["rarity"]    = ArtifactData.ERarity.LEGENDARY
+				result["signature"] = ArtifactData.ESignature.ROYAL
+				var leg_origins: Array = [
+					ArtifactData.EOrigin.DWARF_MINE,
+					ArtifactData.EOrigin.ELF_FOREST,
+					ArtifactData.EOrigin.UNKNOWN,
+				]
+				result["origin"] = leg_origins[randi() % leg_origins.size()]
+				result["fakeReason"] = "전설(LEGENDARY) 등급인데 왕도(ROYAL_CAPITAL) 출처가 아님"
+
+			16: # 저주 각인 색상 위조 — 보라색이 아님 (R9)
+				result["signature"] = ArtifactData.ESignature.CURSE
+				var non_purple16: Array = [
+					ArtifactData.EColor.RED,
+					ArtifactData.EColor.BLUE,
+					ArtifactData.EColor.GREEN,
+					ArtifactData.EColor.BLACK,
+				]
+				result["color"] = non_purple16[randi() % non_purple16.size()]
+				result["fakeReason"] = "저주(CURSE) 각인인데 색상이 보라(PURPLE)가 아님"
+
+		# ── 위조 결과 검증 ───────────────────────────────
+		# 이미지 위조는 실물 검사로만 감지 → 그대로 채택
+		if gimmick in IMAGE_GIMMICKS:
+			return result
+		# 속성 위조는 실제 규칙 위반이 생겼을 때만 채택, 아니면 재시도
+		if not _evaluate_validity(result)["valid"]:
+			return result
+
+	# ── 폴백: 어떤 기믹도 규칙 위반을 만들지 못함 → 확실한 위조 ──
+	var fb := genuine.duplicate()
+	fb["isGenuine"]  = false
+	fb["signature"]  = ArtifactData.ESignature.FAKE_MARK
+	fb["fakeReason"] = "조잡한 위조 마크(FAKE_MARK) 발견"
+	return fb
 
 # ──────────────────────────────────────────────
 # 다음 유물 표시
@@ -729,18 +866,19 @@ func InitializeRuleBook() -> void:
 	# ── 페이지 1: 출처 및 각인 규정 ─────────────────────
 	var p1 = bs
 	p1 += "[center][font_size=30][b]- 출처 및 각인 규정 -[/b][/font_size][/center]\n\n"
+	p1 += "[color=#555555]※ 공식 각인 = 왕실(ROYAL)·장인(ARTISAN)\n각인 없음(NONE)은 어느 출처든 허용[/color]\n\n"
 	p1 += "[color=#8800aa][b]왕도 (ROYAL_CAPITAL)[/b][/color]\n"
-	p1 += "허용 각인: ROYAL만\n"
+	p1 += "공식 각인: ROYAL만\n"
 	p1 += "금지 재질: WOOD, BONE\n\n"
 	p1 += "[color=#555500][b]드워프 광산 (DWARF_MINE)[/b][/color]\n"
-	p1 += "허용 각인: ARTISAN만\n"
+	p1 += "공식 각인: ARTISAN만\n"
 	p1 += "허용 재질: IRON, GOLD, SILVER, STONE만\n\n"
 	p1 += "[color=#006600][b]엘프 숲 (ELF_FOREST)[/b][/color]\n"
-	p1 += "허용 각인: ARTISAN만\n"
+	p1 += "공식 각인: ARTISAN만\n"
 	p1 += "금지 재질: 금속류 (IRON, GOLD, SILVER)\n\n"
 	p1 += "[color=#777777][b]미상 (UNKNOWN)[/b][/color]\n"
 	p1 += "[color=#cc0000]공식 각인(ROYAL/ARTISAN) 불가[/color]\n"
-	p1 += "허용: NONE, CURSE, FAKE_MARK\n\n"
+	p1 += "허용: NONE, CURSE\n\n"
 	p1 += "[color=#cc0000]FAKE_MARK 발견 시 즉시 거부[/color]"
 	p1 += es
 	manual_pages.append(p1)
@@ -748,15 +886,16 @@ func InitializeRuleBook() -> void:
 
 	# ── 페이지 2: 마력 상태 및 분류 규정 ────────────────
 	var p2 = bs
-	p2 += "[center][font_size=30][b]- 마력 상태 · 분류 규정 -[/b][/font_size][/center]\n\n"
+	p2 += "[center][font_size=30][b]- 마력 상태 · 등급 규정 -[/b][/font_size][/center]\n\n"
 	p2 += "[b]마력 보존 상태 (Condition)[/b]\n\n"
 	p2 += "[color=#005500]ACTIVE:[/color] 정상 매입 가능.\n\n"
 	p2 += "[color=#cc6600]DEPLETED:[/color] 무기/물약 매입 불가.\n(도구(TOOL)는 예외 허용)\n\n"
-	p2 += "[color=#cc0000]CORRUPTED:[/color] 저주 각인으로 간주.\n즉시 파기(거절).\n\n"
+	p2 += "[color=#cc0000]CORRUPTED:[/color] 저주(CURSE) 각인이 있을\n때만 정상. 그 외에는 즉시 거절.\n\n"
 	p2 += "[color=#999999]────────────────[/color]\n\n"
-	p2 += "[b]분류·등급별 재질 규정[/b]\n\n"
-	p2 += "[color=#0055cc]물약(POTION):[/color]\n반드시 유리(GLASS) 용기여야 함.\n\n"
-	p2 += "[color=#880055]전설(LEGENDARY) 등급:[/color]\n반드시 왕실(ROYAL) 각인 전용."
+	p2 += "[b]분류·등급별 규정[/b]\n\n"
+	p2 += "[color=#0055cc]물약(POTION):[/color] 반드시 유리(GLASS).\n\n"
+	p2 += "[color=#880055]전설(LEGENDARY):[/color]\n왕실(ROYAL) 각인 + 왕도 출처 전용.\n\n"
+	p2 += "[color=#8800aa]저주(CURSE) 각인:[/color]\n반드시 보라색(PURPLE)."
 	p2 += es
 	manual_pages.append(p2)
 	manual_page_artifacts.append([])

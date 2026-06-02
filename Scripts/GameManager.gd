@@ -14,6 +14,11 @@ var artifacts_today: int = 0
 var artifacts_per_day: int = 5
 var week_number: int = 1
 
+# ── 디버그 모드 ───────────────────────────────────────
+## true 이면 감정 DEBUG_ARTIFACTS_PER_WEEK회 만에 주간 결산이 나온다.
+var debug_mode: bool = false
+const DEBUG_ARTIFACTS_PER_WEEK := 3
+
 # ── 주간 통계 ─────────────────────────────────────────
 var weekly_correct: int = 0
 var weekly_incorrect: int = 0
@@ -30,7 +35,7 @@ func _ready() -> void:
 	load_data()
 
 # ── 게임 초기화 ──────────────────────────────────────
-func reset_game() -> void:
+func reset_game(debug: bool = false) -> void:
 	score         = 0
 	day           = 1
 	artifacts_today = 0
@@ -38,6 +43,7 @@ func reset_game() -> void:
 	weekly_correct   = 0
 	weekly_incorrect = 0
 	pending_summary  = {}
+	debug_mode       = debug
 
 # ── 판정 결과 반영 ───────────────────────────────────
 ## correct=true → +10, false → -5
@@ -53,6 +59,16 @@ func apply_judgment(correct: bool) -> void:
 # ── 유물 처리 후 일수 진행 ────────────────────────────
 ## Returns true 이면 이번 주 7일이 막 완료됨 → WeeklySummary 표시
 func advance_artifact() -> bool:
+	# ── 디버그 모드: 감정 N회만에 주간 결산 ───────────────
+	# weekly_correct + weekly_incorrect == 이번 주 누적 감정 횟수
+	if debug_mode:
+		if (weekly_correct + weekly_incorrect) >= DEBUG_ARTIFACTS_PER_WEEK:
+			artifacts_today = 0
+			day = week_number * 7 + 1   # 점수바가 다음 주로 표시되도록 보정
+			_build_weekly_summary()
+			return true
+		return false
+
 	artifacts_today += 1
 	if artifacts_today >= artifacts_per_day:
 		artifacts_today = 0
